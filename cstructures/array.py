@@ -379,6 +379,13 @@ def array_array_add(a, b, output):
 
 
 @specialize
+def transpose(matrix, output):
+    """ Elementwise array addition """
+    for y, x in output.indices(parallel=True):
+        output[y, x] = matrix[x, y]
+
+
+@specialize
 def array_scalar_add(a, b, output):
     """ Array scalar addition """
     for y, x in output.indices(parallel=True):
