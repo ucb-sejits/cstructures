@@ -1,9 +1,10 @@
 import unittest
 import numpy as np
 from cstructures.array import Array, transpose
+import cstructures.array as array
 
 
-class TestMap(unittest.TestCase):
+class TestTranspose(unittest.TestCase):
     def _check(self, actual, expected):
         np.testing.assert_allclose(actual, expected)
 
