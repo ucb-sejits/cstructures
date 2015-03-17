@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 from cstructures.array import Array, transpose
-import cstructures.array as array
 
 
 class TestTranspose(unittest.TestCase):
