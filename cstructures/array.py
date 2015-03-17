@@ -43,7 +43,7 @@ class Backend(ast.NodeTransformer):
             if type(cfg) == ArrayCfg:
                 param.type = np.ctypeslib.ndpointer(cfg.dtype, len(cfg.shape),
                                                     cfg.shape)()
-            elif type(cfg) == np.float32:
+            elif type(cfg) in {np.float32, float}:
                 param.type = ct.c_float()
             else:
                 # TODO: Generalize type inference or add support for all types
@@ -256,14 +256,24 @@ class CacheBlockLoopNest(ast.NodeTransformer):
 
 
 class ConcreteFn(ConcreteSpecializedFunction):
-    def __init__(self, entry_name, proj, entry_type):
+    def __init__(self, entry_name, proj, entry_type, output):
         self._c_function = self._compile(entry_name, proj, entry_type)
+        self.output = output
 
     def __call__(self, *args, **kwargs):
         a = []
-        for i in range(len(self._c_function.argtypes)):
+        # TODO: This is a dirty hack, we need a way to specify the number of
+        # arguments or trimming arguments
+        arglen = len(self._c_function.argtypes)
+        if self.output:
+            arglen -= 1
+        for i in range(arglen):
             a.append(args[i])
-        return self._c_function(*a)
+        if self.output:
+            a.append(self.output(args))
+        self._c_function(*a)
+        if self.output:
+            return a[-1]
 
 
 class SpecializedFn(LazySpecializedFunction):
@@ -278,9 +288,10 @@ class SpecializedFn(LazySpecializedFunction):
          large call stack)
 
     """
-    def __init__(self, tree, symbol_table):
+    def __init__(self, tree, symbol_table, output):
         super(SpecializedFn, self).__init__(tree)
         self.symbol_table = symbol_table
+        self.output = output
 
     def args_to_subconfig(self, args, kwargs):
         arg_cfg = ()
@@ -296,6 +307,9 @@ class SpecializedFn(LazySpecializedFunction):
                 arg_cfg += (kwargs[key], )
             else:
                 raise Exception("Unsupport kwarg type {}".format(type(arg)))
+        if self.output:
+            arg = self.output(args)
+            arg_cfg += (ArrayCfg(arg.shape, arg.dtype), )
         return arg_cfg
 
     def transform(self, tree, program_cfg):
@@ -314,7 +328,7 @@ class SpecializedFn(LazySpecializedFunction):
                 entry_type += (np.ctypeslib.ndpointer(cfg.dtype,
                                                       len(cfg.shape),
                                                       cfg.shape), )
-            elif isinstance(cfg, np.float32):
+            elif type(cfg) in {np.float32, float}:
                 entry_type += (ct.c_float, )
             elif isinstance(cfg, int):
                 entry_type += (ct.c_int, )
@@ -322,20 +336,27 @@ class SpecializedFn(LazySpecializedFunction):
                 raise NotImplementedError()
         entry_type = ct.CFUNCTYPE(*entry_type)
         return ConcreteFn(files[0].name,
-                          Project(files), entry_type)
+                          Project(files), entry_type, self.output)
 
 
-def specialize(fn):
+def specialize(fn=None, output=None):
     """
     Specializes function fn using SpecalizedFn.
     """
+    if fn is None:
+        def wrapped(fn):
+            return specialize(fn, output)
+        return wrapped
+
     frame = inspect.stack()[1][0]
     symbol_table = frame.f_locals
-    symbol_table.update(frame.f_back.f_locals)
+    for i in range(3):
+        frame = frame.f_back
+        symbol_table.update(frame.f_locals)
     # FIXME: symbol_table prints out a huge dict, why??
     # TODO: We grab the last two frames, what to do if there's more?
 
-    spec_fn = SpecializedFn(get_ast(fn), symbol_table)
+    spec_fn = SpecializedFn(get_ast(fn), symbol_table, output)
 
     @wraps(fn)
     def fn(*args, **kwargs):
@@ -371,25 +392,65 @@ def specialized_dispatch(fn=None, num_args=None):
     return wrapped
 
 
-@specialize
+def gen_array_output(args):
+    return Array.zeros_like(args[0])
+
+
+@specialize(output=gen_array_output)
 def array_array_add(a, b, output):
     """ Elementwise array addition """
     for y, x in output.indices(parallel=True):
         output[y, x] = a[y, x] + b[y, x]
 
 
-@specialize
-def transpose(matrix, output):
-    """ Elementwise array addition """
-    for y, x in output.indices(parallel=True):
-        output[y, x] = matrix[x, y]
-
-
-@specialize
+@specialize(output=gen_array_output)
 def array_scalar_add(a, b, output):
     """ Array scalar addition """
     for y, x in output.indices(parallel=True):
         output[y, x] = a[y, x] + b
+
+
+@specialize(output=gen_array_output)
+def array_array_mul(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] * b[y, x]
+
+
+@specialize(output=gen_array_output)
+def array_scalar_mul(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] * b
+
+
+@specialize(output=gen_array_output)
+def array_array_div(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] / b[y, x]
+
+
+@specialize(output=gen_array_output)
+def array_scalar_div(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] / b
+
+
+@specialize(output=gen_array_output)
+def array_array_sub(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] - b[y, x]
+
+
+@specialize(output=gen_array_output)
+def array_scalar_sub(a, b, output):
+    for y, x in output.indices(parallel=True):
+        output[y, x] = a[y, x] - b
+
+
+@specialize(output=gen_array_output)
+def transpose(matrix, output):
+    """ Elementwise array addition """
+    for y, x in output.indices(parallel=True):
+        output[y, x] = matrix[x, y]
 
 
 def smap(func):
@@ -399,7 +460,7 @@ def smap(func):
     TODO: Define a spec for types of functions supported by map.
     """
     @wraps(func)
-    @specialize
+    @specialize(output=gen_array_output)
     def fn(a, output):
         for y, x in output.indices():
             output[y, x] = func(a[y, x])
@@ -413,7 +474,7 @@ def smap2(func):
     TODO: Define a spec for types of functions supported by map.
     """
     @wraps(func)
-    @specialize
+    @specialize(output=gen_array_output)
     def fn(a, b, output):
         for y, x in output.indices():
             output[y, x] = func(a[y, x], b[y, x])
@@ -422,8 +483,8 @@ def smap2(func):
 
 # def smap(func):
 #     """
-#     Wraps func with a specializer that will map over an array and call func on
-#     each element.
+#     Wraps func with a specializer that will map over an array and call func
+#     on each element.
 #     TODO: Define a spec for types of functions supported by map.
 #     """
 #     @wraps(func)
@@ -480,15 +541,74 @@ class Array(np.ndarray):
     def array(*args, **kwargs):
         return np.array(*args, **kwargs).view(Array)
 
-    @staticmethod
     @specialized_dispatch
-    def add(a, b, output):
+    def __add__(self, b):
         """
         Dispatches the proper specialized addition operation based on the types
         of the inputs.
         """
-        if isinstance(a, Array) and isinstance(b, Array):
+        if isinstance(b, Array):
             return array_array_add
-        elif isinstance(a, Array) and type(b) in {np.float32}:
+        elif type(b) in {np.float32, float}:
             return array_scalar_add
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __radd__(self, b):
+        """
+        Dispatches the proper specialized addition operation based on the types
+        of the inputs.
+        """
+        if isinstance(b, Array):
+            return array_array_add
+        elif type(b) in {np.float32, float}:
+            return array_scalar_add
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __sub__(self, b):
+        if isinstance(b, Array):
+            return array_array_sub
+        elif type(b) in {np.float32, float}:
+            return array_scalar_sub
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __rsub__(self, b):
+        if isinstance(b, Array):
+            return array_array_sub
+        elif type(b) in {np.float32, float}:
+            return array_scalar_sub
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __mul__(self, b):
+        if isinstance(b, Array):
+            return array_array_mul
+        elif type(b) in {np.float32, float}:
+            return array_scalar_mul
+        raise NotImplementedError(type(b))
+
+    @specialized_dispatch
+    def __rmul__(self, b):
+        if isinstance(b, Array):
+            return array_array_mul
+        elif type(b) in {np.float32, float}:
+            return array_scalar_mul
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __div__(self, b):
+        if isinstance(b, Array):
+            return array_array_div
+        elif type(b) in {np.float32, float}:
+            return array_scalar_div
+        raise NotImplementedError()
+
+    @specialized_dispatch
+    def __rdiv__(self, b):
+        if isinstance(b, Array):
+            return array_array_div
+        elif type(b) in {np.float32, float}:
+            return array_scalar_div
         raise NotImplementedError()
