@@ -362,7 +362,7 @@ class SpecializedFn(LazySpecializedFunction):
 
     def eval_symbolically(self, *args, **kwargs):
         # TODO: This should return a symbolic output, not an actual
-        return self.output(*args, **kwargs)
+        return self.output(args)
 
 
 def specialize(fn=None, output=None):
