@@ -160,10 +160,13 @@ class Backend(ast.NodeTransformer):
                     if isinstance(node.right, ast.Tuple):
                         loopvars = node.right.elts
                         loopvars = tuple(var.name for var in loopvars)
-                    else:
-                        loopvars = self.loop_var_map[node.right.name]
-                    node.right = self.gen_loop_index(
-                        loopvars, target.shape)
+                        node.right = self.gen_loop_index(
+                            loopvars, target.shape)
+                    elif isinstance(node.right, C.SymbolRef):
+                        if node.right.name in self.loop_var_map:
+                            loopvars = self.loop_var_map[node.right.name]
+                            node.right = self.gen_loop_index(
+                                loopvars, target.shape)
                     return node
             if isinstance(node.left, ast.Attribute):
                 if node.left.value.name in self.cfg_dict:
