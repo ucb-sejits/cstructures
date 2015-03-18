@@ -338,6 +338,10 @@ class SpecializedFn(LazySpecializedFunction):
         return ConcreteFn(files[0].name,
                           Project(files), entry_type, self.output)
 
+    def eval_symbolically(self, *args, **kwargs):
+        # TODO: This should return a symbolic output, not an actual
+        return self.output(*args, **kwargs)
+
 
 def specialize(fn=None, output=None):
     """
@@ -549,7 +553,7 @@ class Array(np.ndarray):
         """
         if isinstance(b, Array):
             return array_array_add
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_add
         raise NotImplementedError()
 
@@ -561,7 +565,7 @@ class Array(np.ndarray):
         """
         if isinstance(b, Array):
             return array_array_add
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_add
         raise NotImplementedError()
 
@@ -569,7 +573,7 @@ class Array(np.ndarray):
     def __sub__(self, b):
         if isinstance(b, Array):
             return array_array_sub
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_sub
         raise NotImplementedError()
 
@@ -577,7 +581,7 @@ class Array(np.ndarray):
     def __rsub__(self, b):
         if isinstance(b, Array):
             return array_array_sub
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_sub
         raise NotImplementedError()
 
@@ -585,7 +589,7 @@ class Array(np.ndarray):
     def __mul__(self, b):
         if isinstance(b, Array):
             return array_array_mul
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_mul
         raise NotImplementedError(type(b))
 
@@ -593,7 +597,7 @@ class Array(np.ndarray):
     def __rmul__(self, b):
         if isinstance(b, Array):
             return array_array_mul
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_mul
         raise NotImplementedError()
 
@@ -601,7 +605,7 @@ class Array(np.ndarray):
     def __div__(self, b):
         if isinstance(b, Array):
             return array_array_div
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_div
         raise NotImplementedError()
 
@@ -609,6 +613,6 @@ class Array(np.ndarray):
     def __rdiv__(self, b):
         if isinstance(b, Array):
             return array_array_div
-        elif type(b) in {np.float32, float}:
+        elif type(b) in {np.float32, float, int}:
             return array_scalar_div
         raise NotImplementedError()
