@@ -26,6 +26,7 @@ class Backend(ast.NodeTransformer):
         self.loop_shape_map = {}
         self.defns = []
         self.includes = None
+        self.loop_var_map = {}
 
     def visit_CFile(self, node):
         self.defns = []
@@ -45,6 +46,8 @@ class Backend(ast.NodeTransformer):
                                                     cfg.shape)()
             elif type(cfg) in {np.float32, float}:
                 param.type = ct.c_float()
+            elif type(cfg) in {int}:
+                param.type = ct.c_int()
             else:
                 # TODO: Generalize type inference or add support for all types
                 raise NotImplementedError()
@@ -106,10 +109,22 @@ class Backend(ast.NodeTransformer):
                     "Unsupported keyword argument to indices " + ast.dump(key))
         return outer
 
+    loop_var = -1
+
+    def gen_loop_var(self):
+        self.loop_var += 1
+        return "x{}".format(self.loop_var)
+
     def visit_For(self, node):
         if self.is_loop_by_index(node):
             cfg = self.cfg_dict[node.iter.func.value.id]
-            loopvars = tuple(var.id for var in node.target.elts)
+            if isinstance(node.target, ast.Tuple):
+                loopvars = tuple(var.id for var in node.target.elts)
+            else:
+                loopvars = ()
+                for _ in cfg.shape:
+                    loopvars += (self.gen_loop_var(), )
+                self.loop_var_map[node.target.id] = loopvars
             outer, inner = self.gen_loop_nest(loopvars, cfg)
             inner.body = list(map(self.visit, node.body))
             if node.iter.keywords:
@@ -142,7 +157,11 @@ class Backend(ast.NodeTransformer):
                     target = self.cfg_dict[target]
                     # if type(target) in {int, float}:
                     #     return C.Constant(target)
-                    loopvars = tuple(var.name for var in node.right.elts)
+                    if isinstance(node.right, ast.Tuple):
+                        loopvars = node.right.elts
+                        loopvars = tuple(var.name for var in loopvars)
+                    else:
+                        loopvars = self.loop_var_map[node.right.name]
                     node.right = self.gen_loop_index(
                         loopvars, target.shape)
                     return node
@@ -403,51 +422,51 @@ def gen_array_output(args):
 @specialize(output=gen_array_output)
 def array_array_add(a, b, output):
     """ Elementwise array addition """
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] + b[y, x]
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] + b[pt]
 
 
 @specialize(output=gen_array_output)
 def array_scalar_add(a, b, output):
     """ Array scalar addition """
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] + b
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] + b
 
 
 @specialize(output=gen_array_output)
 def array_array_mul(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] * b[y, x]
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] * b[pt]
 
 
 @specialize(output=gen_array_output)
 def array_scalar_mul(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] * b
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] * b
 
 
 @specialize(output=gen_array_output)
 def array_array_div(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] / b[y, x]
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] / b[pt]
 
 
 @specialize(output=gen_array_output)
 def array_scalar_div(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] / b
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] / b
 
 
 @specialize(output=gen_array_output)
 def array_array_sub(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] - b[y, x]
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] - b[pt]
 
 
 @specialize(output=gen_array_output)
 def array_scalar_sub(a, b, output):
-    for y, x in output.indices(parallel=True):
-        output[y, x] = a[y, x] - b
+    for pt in output.indices(parallel=True):
+        output[pt] = a[pt] - b
 
 
 @specialize(output=gen_array_output)
@@ -466,8 +485,8 @@ def smap(func):
     @wraps(func)
     @specialize(output=gen_array_output)
     def fn(a, output):
-        for y, x in output.indices():
-            output[y, x] = func(a[y, x])
+        for pt in output.indices():
+            output[pt] = func(a[pt])
     return fn
 
 
@@ -480,8 +499,8 @@ def smap2(func):
     @wraps(func)
     @specialize(output=gen_array_output)
     def fn(a, b, output):
-        for y, x in output.indices():
-            output[y, x] = func(a[y, x], b[y, x])
+        for pt in output.indices():
+            output[pt] = func(a[pt], b[pt])
     return fn
 
 
