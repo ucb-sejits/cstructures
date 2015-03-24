@@ -422,7 +422,7 @@ def smap2(func):
 
 # def smap(func):
 #     """
-#     Wraps func with a specializer that will map over an array and call func on
+#     Wrap func with a specializer that will map over an array and call func on
 #     each element.
 #     TODO: Define a spec for types of functions supported by map.
 #     """
