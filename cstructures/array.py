@@ -575,7 +575,6 @@ class Array(np.ndarray):
     def eye(*args, **kwargs):
         return np.eye(*args, **kwargs).view(Array)
 
-    @staticmethod
     @specialized_dispatch
     def __add__(self, b):
         """
