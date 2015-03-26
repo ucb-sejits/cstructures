@@ -13,20 +13,13 @@ class TestDotFinder(unittest.TestCase):
 
     def test_simple(self):
 
-    	@dgemmify
-    	def matrix_mult_special():
+    	def matrix_mult():
     		A = Array.array([[1, 0], [0, 1]])
     		B = Array.array([[1, 1], [1, 1]])
     		C = dot(A, B)
     		return C
 
-    	def matrix_mult_unspecial():
-    		A = Array.array([[1, 0], [0, 1]])
-    		B = Array.array([[1, 1], [1, 1]])
-    		C = dot(A, B)
-    		return C
-
-    	expected = matrix_mult_unspecial()
-    	actual = matrix_mult_special()
+    	expected = matrix_mult()
+    	actual = dgemmify(matrix_mult)()
 
         self._check(actual, expected)
