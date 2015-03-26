@@ -1,32 +1,40 @@
-# writing Node transformers for an implementation of BLAS
+# Writing Node transformers for an implementation of BLAS
 
 import inspect
-from ast import NodeTransformer, fix_missing_locations
-
-# from ctree.transformations import PyBasicConversions
-
-from ctree import get_ast
-from cstructures.array import Array
-from ctree.visitors import NodeTransformer
-from scipy.linalg.blas import dgemm
 import sys
-import ast
+
+from ast import NodeTransformer, fix_missing_locations, Module
+from ast import FunctionDef, Num
+from ctree import get_ast
+
+# not explicitly used, but necessary when getting the new function
+from cstructures.array import Array
+from scipy.linalg.blas import dgemm
 
 
 def dgemmify(func):
-    tree = get_ast(func)
+    '''
+        This method takes a kernel function and uses DotOpFinder to
+        convert any references to Array.dot (which is numpy.dot) to
+        calls to scipy.linalg.blas.dgemm.
 
+        :param: func (Function): the function to do this conversion on
+        :return: a Function that does the same thing that func does,
+                 except with dgemm calls instead of dot calls.
+    '''
+    tree = get_ast(func)
     mod_tree = DotOpFinder().visit(tree)
 
+    # place the modified tree into a clean FunctionDef
     if sys.version_info >= (3, 0):
-        mod_tree = ast.Module(
-            [ast.FunctionDef(func.__name__, mod_tree.body[0].args,
-                             mod_tree.body[0].body, [], None)]
+        mod_tree = Module(
+            [FunctionDef(func.__name__, mod_tree.body[0].args,
+                         mod_tree.body[0].body, [], None)]
         )
     else:
-        mod_tree = ast.Module(
-            [ast.FunctionDef(func.__name__, mod_tree.body[0].args,
-                             mod_tree.body[0].body, [])]
+        mod_tree = Module(
+            [FunctionDef(func.__name__, mod_tree.body[0].args,
+                         mod_tree.body[0].body, [])]
         )
 
     mod_tree = fix_missing_locations(mod_tree)
@@ -60,7 +68,7 @@ class DotOpFinder(NodeTransformer):
 
         if func_name is 'dot':                   # if it's a matrix multiply
             node.func.id = 'dgemm'
-            node.args.insert(0, ast.Num(n=1.0))  # adding the alpha parameter
+            node.args.insert(0, Num(n=1.0))  # adding the alpha parameter
             return fix_missing_locations(node)
         else:
             return node

@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
-from cstructures.array import Array, transpose, specialize
 import inspect
-
+from cstructures.array import Array, transpose, specialize
 from cstructures.blas_transformers import dgemmify
 
 
@@ -22,8 +21,8 @@ class TestDotFinder(unittest.TestCase):
     		return C
 
     	def matrix_mult_unspecial():
-    		A = Array.eye(2)
-    		B = Array.ones_like(A)
+    		A = Array.array([[1, 0], [0, 1]])
+    		B = Array.array([[1, 1], [1, 1]])
     		C = dot(A, B)
     		return C
 
