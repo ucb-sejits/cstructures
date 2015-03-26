@@ -17,16 +17,15 @@ class TestMap(unittest.TestCase):
             else:
                 return 0
 
-        actual = Array.zeros(a.shape, np.float32)
-        fn(a, actual)
+        actual = fn(a)
         expected = np.copy(a)
         expected[expected < 0] = 0
         self._check(actual, expected)
 
     def test_two_inputs(self):
-        a = Array.rand(256, 256).astype(np.float32) * 255 - 128
-        b = Array.rand(256, 256).astype(np.float32) * 255 - 128
-        negative_slope = 0
+        a = Array.rand(256, 256).astype(np.float32) * 255.0 - 128.0
+        b = Array.rand(256, 256).astype(np.float32) * 255.0 - 128.0
+        negative_slope = 0.0
 
         @smap2
         def fn(x, y):
@@ -35,8 +34,7 @@ class TestMap(unittest.TestCase):
             else:
                 return negative_slope * y
 
-        actual = Array.zeros(a.shape, np.float32)
-        fn(a, b, actual)
+        actual = fn(a, b)
         expected = b
         expected[a <= 0] *= negative_slope
         self._check(actual, expected)

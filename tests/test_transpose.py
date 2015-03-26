@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 from cstructures.array import Array, transpose
-import cstructures.array as array
 
 
 class TestTranspose(unittest.TestCase):
@@ -11,9 +10,7 @@ class TestTranspose(unittest.TestCase):
     def test_simple(self):
         a = Array.rand(256, 256).astype(np.float32)
 
-        actual = Array.zeros(a.shape, np.float32)
-
-        transpose(a, actual)
+        actual = transpose(a)
         expected = np.transpose(a)
 
         self._check(actual, expected)
