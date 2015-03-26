@@ -23,7 +23,6 @@ class TestMap(unittest.TestCase):
         expected[expected < 0] = 0
         self._check(actual, expected)
 
-
     def test_two_inputs(self):
         a = Array.rand(256, 256).astype(np.float32) * 255 - 128
         b = Array.rand(256, 256).astype(np.float32) * 255 - 128

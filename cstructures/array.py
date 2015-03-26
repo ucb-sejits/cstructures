@@ -481,6 +481,14 @@ class Array(np.ndarray):
         return np.array(*args, **kwargs).view(Array)
 
     @staticmethod
+    def ones_like(*args, **kwargs):
+        return np.ones_like(*args, **kwargs).view(Array)
+
+    @staticmethod
+    def eye(*args, **kwargs):
+        return np.eye(*args, **kwargs).view(Array)
+
+    @staticmethod
     @specialized_dispatch
     def add(a, b, output):
         """
