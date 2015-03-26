@@ -6,6 +6,7 @@ import inspect
 from cstructures.blas_transformers import dgemmify
 
 
+dot = Array.dot
 
 class TestDotFinder(unittest.TestCase):
     def _check(self, actual, expected):
@@ -17,7 +18,7 @@ class TestDotFinder(unittest.TestCase):
     	def matrix_mult_special():
     		A = Array.array([[1, 0], [0, 1]])
     		B = Array.array([[1, 1], [1, 1]])
-    		C = Array.dot(A, B)
+    		C = dot(A, B)
 
 
     		# A = Array.eye(5)
@@ -26,7 +27,7 @@ class TestDotFinder(unittest.TestCase):
     		return C
 
     	def matrix_mult_unspecial():
-    		A = Array.eye(3)
+    		A = Array.eye(2)
     		B = Array.ones_like(A)
     		C = Array.dot(A, B)
 
@@ -40,10 +41,9 @@ class TestDotFinder(unittest.TestCase):
 
     	print ("MATRIX MULT: ", matrix_mult_special)
     	actual = matrix_mult_special()
-    	print actual
 
     	# print (actual.func_code)
-    	# print (inspect.getsource(dgemmify(matrix_mult_special)))
+    	print (inspect.getsource(matrix_mult_special))
 
 
 

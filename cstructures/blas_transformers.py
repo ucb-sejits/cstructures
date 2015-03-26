@@ -15,11 +15,13 @@ from numpy import dot
 from dis import dis
 import sys
 import ast
+from numpy import dot
 
 
 def dgemmify(gina):
     tree = get_ast(gina)
 
+    print dump(tree)
     # print dump(tree)
     # print "TREE: ", tree.body[0].body[2].value
 
@@ -167,9 +169,16 @@ class DotOpFinder(NodeTransformer):
             args_list = [1.0] + args   # adding in the alpha parameter
             # new_node = copy_location(node, Call(func=dgemm, args=args_list))
             
-            new_node = Call(func=dgemm, args=args_list)
-            new_node = copy_location(new_node, node)
-            new_node = fix_missing_locations(new_node)
+            node.func.id = 'dgemm'
+            node.args.insert(0, ast.Num(n=1.0))
+            # new_node = Call(func=node.func, args=args_list)
+            # func_attr = node.func
+            # func_attr.node
+            # new_node = Call(func=dot, args=args)
+            # new_node = copy_location(new_node, node)
+            # new_
+            node = fix_missing_locations(node)
+            return node
             
             # node.func = dgemm
             # node.args = args_list
