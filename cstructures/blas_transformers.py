@@ -7,35 +7,69 @@ from ast import NodeTransformer, Call, copy_location, fix_missing_locations
 
 from ctree import get_ast
 from ctree.frontend import dump
+from cstructures.array import Array, transpose, specialize
 from ctree.c.nodes import FunctionCall, Constant
 from ctree.visitors import NodeTransformer
 from scipy.linalg.blas import dgemm
 from numpy import dot
 from dis import dis
+import sys
+import ast
 
 
 def dgemmify(gina):
     tree = get_ast(gina)
+
+    # print dump(tree)
     # print "TREE: ", tree.body[0].body[2].value
 
     mod_tree = DotOpFinder().visit(tree)
     # print "MOD TREE: ", mod_tree.body[0].body[2].value
-    fix_missing_locations(mod_tree)
+    mod_tree = fix_missing_locations(mod_tree)
 
-    print("MOD TREE TYPE: ", type(mod_tree))
-    print ("TREE:", mod_tree)
-    print ("TREE BODY:", mod_tree.body)
-    print ("TREE OTHER STUFF:", mod_tree.body[0].body[2].value.func.attr)
+    # print ("TREE:", mod_tree)
+    # print ("TREE BODY:", mod_tree.body)
+    # print ("TREE OTHER STUFF:", mod_tree.body[0].body[2].value.func.attr)
 
-    # new_func_code = compile(
-        # mod_tree, filename=inspect.getsourcefile(gina), mode='exec')
+
+    if sys.version_info >= (3, 0):
+        mod_tree = ast.Module(
+            [ast.FunctionDef("ltn", mod_tree.body[0].args,
+                             mod_tree.body[0].body, [], None)]
+        )
+    else:
+        mod_tree = ast.Module(
+            [ast.FunctionDef("ltn", mod_tree.body[0].args,
+                             mod_tree.body[0].body, [])]
+        )
+
+    mod_tree = fix_missing_locations(mod_tree)
+
+
+    # print("MOD TREE TYPE: ", type(mod_tree))
+
+
+    # print("11111")
+    print dump(mod_tree)
+    # print("22222")
+
+    loc = locals().copy()
+    mod_tree = fix_missing_locations(mod_tree)
 
     new_func_code = compile(
         mod_tree, filename=inspect.getsourcefile(gina), mode='exec')
 
+    # new_func_code = compile(
+    #     mod_tree, filename=inspect.getsourcefile(gina), mode='exec')
+
     # exec(compile(mod_tree, filename="<string>", mode="exec"), symbol_table._env, symbol_table._env)
+    # exec(compile(mod_tree, filename="string", mode="exec"))
     exec(new_func_code)  # , glob, loc)
-    return locals()['matrix_mult_special']
+
+    
+    print set(locals().keys()) - set(loc.keys())
+    print "RETURN: ", locals()['ltn'] 
+    return locals()['ltn']
 
     #######################
     ## RANDOM CODE STUFF ##
@@ -131,7 +165,19 @@ class DotOpFinder(NodeTransformer):
             # if it's a matrix multiply
             print "DETECTED numpy.dot()"
             args_list = [1.0] + args   # adding in the alpha parameter
-            new_node = copy_location(node, Call(func=dgemm, args=args_list))
+            # new_node = copy_location(node, Call(func=dgemm, args=args_list))
+            
+            new_node = Call(func=dgemm, args=args_list)
+            new_node = copy_location(new_node, node)
+            new_node = fix_missing_locations(new_node)
+            
+            # node.func = dgemm
+            # node.args = args_list
+
+
+            return new_node
+
+            # print "NEW NODE: ", new_node.func.attr
             return new_node
         else:
             return node

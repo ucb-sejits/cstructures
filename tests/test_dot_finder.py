@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from cstructures.array import Array, transpose, specialize
+import inspect
 
 from cstructures.blas_transformers import dgemmify
 
@@ -39,10 +40,10 @@ class TestDotFinder(unittest.TestCase):
 
     	print ("MATRIX MULT: ", matrix_mult_special)
     	actual = matrix_mult_special()
+    	print actual
 
-    	import inspect
     	# print (actual.func_code)
-    	print (inspect.getsource(dgemmify(matrix_mult_special)))
+    	# print (inspect.getsource(dgemmify(matrix_mult_special)))
 
 
 
