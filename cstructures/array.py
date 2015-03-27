@@ -362,7 +362,7 @@ class SpecializedFn(LazySpecializedFunction):
 
     def eval_symbolically(self, *args, **kwargs):
         # TODO: This should return a symbolic output, not an actual
-        return self.output(*args, **kwargs)
+        return self.output(args)
 
 
 def specialize(fn=None, output=None):
@@ -511,8 +511,8 @@ def smap2(func):
 
 # def smap(func):
 #     """
-#     Wraps func with a specializer that will map over an array and call func
-#     on each element.
+#     Wrap func with a specializer that will map over an array and call func on
+#     each element.
 #     TODO: Define a spec for types of functions supported by map.
 #     """
 #     @wraps(func)
@@ -568,6 +568,14 @@ class Array(np.ndarray):
     @staticmethod
     def array(*args, **kwargs):
         return np.array(*args, **kwargs).view(Array)
+
+    @staticmethod
+    def ones_like(*args, **kwargs):
+        return np.ones_like(*args, **kwargs).view(Array)
+
+    @staticmethod
+    def eye(*args, **kwargs):
+        return np.eye(*args, **kwargs).view(Array)
 
     @specialized_dispatch
     def __add__(self, b):
