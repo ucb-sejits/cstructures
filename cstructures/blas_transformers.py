@@ -68,7 +68,7 @@ class DotOpFinder(NodeTransformer):
 
         if func_name is 'dot':                   # if it's a matrix multiply
             node.func.id = 'dgemm'
-            node.args.insert(0, Num(n=1.0))  # adding the alpha parameter
+            node.args.insert(0, Num(n=1.0))      # adding the alpha parameter
             return fix_missing_locations(node)
         else:
             return node
