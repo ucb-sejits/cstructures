@@ -26,7 +26,7 @@ class TestDotFinder(unittest.TestCase):
 
         self._check(actual, expected)
 
-    def test_multiple(self):
+    def test_multiple_nested(self):
 
         def matrix_mult_complex(A, B, C):
             return dot(dot(A, B), C)
