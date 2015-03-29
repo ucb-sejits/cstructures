@@ -378,6 +378,8 @@ def specialize(fn=None, output=None):
     symbol_table = frame.f_locals
     for i in range(3):
         frame = frame.f_back
+        if frame is None:  # End of stack
+            break
         symbol_table.update(frame.f_locals)
     # FIXME: symbol_table prints out a huge dict, why??
     # TODO: We grab the last two frames, what to do if there's more?
