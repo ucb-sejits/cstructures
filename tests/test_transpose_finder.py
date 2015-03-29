@@ -190,3 +190,19 @@ class TestTransposeFinder(unittest.TestCase):
         actual = dgemmify(matrix_mult_sample)()
 
         self._check(actual, expected)
+
+    def test_transpose_on_call(self):
+
+        def matrix_mult_sample():
+
+            A = Array.array([[1, 2], [3, 4]])
+            B = Array.array([[10, 3], [7, 4]])
+
+            C = dot(A.transpose(), B.transpose())
+
+            return C
+
+        expected = matrix_mult_sample()
+        actual = dgemmify(matrix_mult_sample)()
+
+        self._check(actual, expected)

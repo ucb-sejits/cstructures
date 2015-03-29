@@ -125,7 +125,28 @@ class TranspositionFinder(NodeTransformer):
 
         if func_name is 'dgemm':
             for ind, arg in enumerate(node.args):
-                if hasattr(arg, 'id') and arg.id in self.vars_transposed:
+                if isinstance(arg, Call):
+
+                    arg_fn = self.visit(arg.func)
+                    try:
+                        arg_func_name = arg_fn.id
+                    except AttributeError:
+                        arg_func_name = arg_fn.attr
+                        arg.args.insert(0, arg_fn.value)
+
+                    if arg_func_name in {'T', 'transpose'}:
+                        # replace node.args[ind] to be just the argument
+                        node.args[ind] = arg.args[0]
+
+                        # set transposition parameter of the dgemm call to True
+                        try:
+                            # py3
+                            node.args[ind + 4] = ast.NameConstant(value=True)
+                        except AttributeError:
+                            # py2
+                            node.args[ind + 4] = Name(id='True', ctx=Load())
+
+                elif hasattr(arg, 'id') and arg.id in self.vars_transposed:
 
                     # retrive key attributes
                     target, value = self.nodes_transposed[arg.id]
