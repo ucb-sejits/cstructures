@@ -47,6 +47,7 @@ def dgemmify(func):
 
     mod_tree = fix_missing_locations(mod_tree)
 
+    print(dump(mod_tree))
     # compile the function and add it to current local namespace
     new_func_code = compile(
         mod_tree, filename=inspect.getsourcefile(func), mode='exec')
@@ -101,7 +102,7 @@ class TranspositionFinder(NodeTransformer):
 
     """
         This NodeTransformer gets rid of calls to numpy.transpose.
-        Here's we're assuming that everything is line by line here, 
+        Here's we're assuming that everything is line by line here,
         so no nested calls.
     """
 

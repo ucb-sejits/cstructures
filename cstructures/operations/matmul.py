@@ -28,10 +28,11 @@ class ConcreteMatMul(ConcreteSpecializedFunction):
     def __init__(self, entry_name, proj, entry_type):
         self._c_function = self._compile(entry_name, proj, entry_type)
 
-    def __call__(self, A, B):
+    def __call__(self, A, B, transA, transB):
         C = Array.zeros_like(A)
         duration = ct.c_double()
         self._c_function(C, A, B, ct.byref(duration))
+        print(duration.value)
         return C
 
 
@@ -46,13 +47,15 @@ class MatMul(LazySpecializedFunction):
         that classifies them. Arguments with identical subconfigs
         might be processed by the same generated code.
         """
-        A, B = args
+        A, B, transpose_A, transpose_B, = args
         n = len(A)
         assert A.shape == B.shape == (n, n)
         assert A.dtype == B.dtype
         return {
             'n': n,
             'dtype': A.dtype,
+            'transA': transpose_A,
+            'transB': transpose_B
         }
 
     def _gen_load_c_block(self, rx, ry, lda):
@@ -112,6 +115,18 @@ class MatMul(LazySpecializedFunction):
                      range(unroll))
         return Block(stmts)
 
+    def get_load_a_block(self, transpose, template_args):
+        if transpose:
+            raise NotImplementedError()
+        else:
+            return StringTemplate(
+                """
+                //  make a local aligned copy of A's block
+                for( int j = 0; j < K; j++ )
+                    for( int i = 0; i < M; i++ )
+                        a[i+j*$CY] = A[i+j*$lda];
+                """, template_args)
+
     def transform(self, tree, program_cfg):
         arg_cfg, tune_cfg = program_cfg
         # TODO: These should be tunables
@@ -169,18 +184,21 @@ class MatMul(LazySpecializedFunction):
         }
         """, reg_template_args)
 
+        fast_dgemm_args = {
+            "LOAD_A_BLOCK": self.get_load_a_block(arg_cfg['transA'],
+                                                  template_args)
+        }
+        fast_dgemm_args.update(copy.deepcopy(template_args))
+
         fast_dgemm = StringTemplate("""
         void fast_dgemm( int M, int N, int K, $A_decl, $B_decl, $C_decl ) {
             static double a[$CX*$CY] __attribute__ ((aligned (16)));
-            //  make a local aligned copy of A's block
-            for( int j = 0; j < K; j++ )
-                for( int i = 0; i < M; i++ )
-                    a[i+j*$CY] = A[i+j*$lda];
+            $LOAD_A_BLOCK
             //  multiply using the copy
             for( int j = 0; j < N; j += $RX )
                 for( int i = 0; i < M; i += $RY )
                     register_dgemm( a + i, B + j*$lda, C + i + j*$lda, K );
-        }""", template_args)
+        }""", fast_dgemm_args)
 
         fringe_dgemm = StringTemplate("""
         void fringe_dgemm( int M, int N, int K, $A_decl, $B_decl, $C_decl )
