@@ -15,7 +15,6 @@ class TestMatMul(unittest.TestCase):
     def test_square_dgemm(self):
         c = matmul(self.a, self.b, False, False)
         self._check(c, np.dot(self.a.T, self.b.T).T)
-        self.fail()
 
     def test_transpose_a(self):
         c = matmul(self.a, self.b, True, False)
