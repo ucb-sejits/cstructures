@@ -9,7 +9,9 @@ from ctree.simd.macros import *
 from ctree.simd.types import m256d
 import ctypes as ct
 from cstructures import Array
+import logging
 
+logging.getLogger('ctree').propagate = False
 
 def MultiArrayRef(name, *idxs):
     """
@@ -25,14 +27,17 @@ def MultiArrayRef(name, *idxs):
 
 
 class ConcreteMatMul(ConcreteSpecializedFunction):
-    def __init__(self, entry_name, proj, entry_type):
+    def __init__(self, entry_name, proj, entry_type, lsf):
         self._c_function = self._compile(entry_name, proj, entry_type)
+        self.lsf = lsf
 
     def __call__(self, A, B, transA, transB):
         C = Array.zeros_like(A)
         duration = ct.c_double()
         self._c_function(C, A, B, ct.byref(duration))
-        print(duration.value)
+        self.lsf.report(time=duration.value)
+        flops = 2 * a.shape[0] * a.shape[1] * b.shape[1]
+        print("GFLOPS: {}".format(flops * 1e-9 / duration.value))
         return C
 
 
@@ -40,6 +45,21 @@ class MatMul(LazySpecializedFunction):
     def __init__(self, backend='c'):
         self.backend = backend
         super(MatMul, self).__init__(C.Constant(0))
+
+    def get_tuning_driver(self):
+        from ctree.opentuner.driver import OpenTunerDriver
+        from opentuner.search.manipulator import ConfigurationManipulator
+        from opentuner.search.manipulator import IntegerParameter
+        from opentuner.search.manipulator import PowerOfTwoParameter
+        from opentuner.search.objective import MinimizeTime
+
+        manip = ConfigurationManipulator()
+        manip.add_parameter(PowerOfTwoParameter("rx", 1, 8))
+        manip.add_parameter(PowerOfTwoParameter("ry", 1, 8))
+        manip.add_parameter(IntegerParameter("cx", 8, 32))
+        manip.add_parameter(IntegerParameter("cy", 8, 32))
+
+        return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
     def args_to_subconfig(self, args):
         """
@@ -130,9 +150,9 @@ class MatMul(LazySpecializedFunction):
     def transform(self, tree, program_cfg):
         arg_cfg, tune_cfg = program_cfg
         # TODO: These should be tunables
-        rx, ry = 4, 4
-        cx, cy = 4, 4
-        unroll = 4
+        rx, ry = tune_cfg['rx']*4, tune_cfg['ry']*4
+        cx, cy = tune_cfg['cx']*4, tune_cfg['cy']*4
+        unroll = tune_cfg['ry']*4
         n, dtype = arg_cfg['n'], arg_cfg['dtype']
         array_type = np.ctypeslib.ndpointer(dtype, 2, (n, n))()
 
@@ -264,7 +284,16 @@ class MatMul(LazySpecializedFunction):
                       ct.POINTER(ct.c_double))
         entry_type = ct.CFUNCTYPE(*entry_type)
         return ConcreteMatMul('dgemm',
-                              Project(files), entry_type)
+                              Project(files), entry_type, self)
 
 
 matmul = MatMul()
+
+if __name__ == '__main__':
+    a = Array.rand(1024, 1024)
+    b = Array.rand(1024, 1024)
+    for i in range(10):
+        actual = matmul(a, b, False, False)
+    expected = np.dot(a.T, b.T).T
+    np.testing.assert_allclose(actual, expected)
+    print("PASSED")

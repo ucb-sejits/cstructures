@@ -9,8 +9,8 @@ class TestMatMul(unittest.TestCase):
         np.testing.assert_allclose(actual, expected)
 
     def setUp(self):
-        self.a = Array.rand(256, 256)
-        self.b = Array.rand(256, 256)
+        self.a = Array.rand(1024, 1024)
+        self.b = Array.rand(1024, 1024)
 
     def test_square_dgemm(self):
         c = matmul(self.a, self.b, False, False)
