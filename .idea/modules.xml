@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/cstructures.iml" filepath="$PROJECT_DIR$/.idea/cstructures.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../ctree/pyop/.idea/pyop.iml" filepath="$PROJECT_DIR$/../ctree/pyop/.idea/pyop.iml" />
     </modules>
   </component>
 </project>

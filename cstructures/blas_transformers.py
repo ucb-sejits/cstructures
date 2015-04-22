@@ -178,12 +178,16 @@ class TranspositionFinder(NodeTransformer):
         #   (1) Handle multiple assignment for transpose
         #       (a) M, N = A.transpose(), B.transpose()
 
+
         target_value_list = [(self.visit(target), self.visit(value))
                              for target, value in self.parse_pairs(node)]
 
         # if we're assigning anything here, anything from the past no longer
         # counts
         for target, value in target_value_list:
+            if not hasattr(target, 'id'):
+                continue
+
             if target.id in self.vars_transposed:
                 val = self.vars_transposed[target.id]
                 self.remove_transpose(target.id)
